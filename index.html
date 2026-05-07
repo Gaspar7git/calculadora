@@ -319,7 +319,8 @@
             } else if (key === 'Backspace') {
                 event.preventDefault();
                 calc.backspace();
-            } else if (key.toLowerCase() === 'c') {
+            } else if (key.toLowerCase() === 'c' || key === 'Delete') {
+                event.preventDefault();
                 calc.clear();
             }
         });
