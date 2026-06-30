@@ -625,7 +625,7 @@ function renderActiveCourseViewer() {
         
         if (match) {
             const videoId = match[1];
-            videoContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
+            videoContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&controls=1&showinfo=0&disablekb=1" allowfullscreen></iframe>`;
         } else {
             videoContainer.innerHTML = `
                 <video controls controlsList="nodownload" playsinline preload="metadata">
@@ -744,9 +744,14 @@ function renderCourseLessonsTree() {
                     <i data-lucide="video"></i>
                     <span>${cls.title}</span>
                 </div>
-                <button class="btn-text delete-class" data-class-id="${cls.id}" style="color:hsl(0,80%,50%); text-decoration:none; font-size:0.8rem;">
-                    Eliminar
-                </button>
+                <div style="display:flex; gap: 10px;">
+                    <button class="btn-text edit-class" data-class-id="${cls.id}" style="color:var(--primary); text-decoration:none; font-size:0.8rem; font-weight: 600;">
+                        Editar
+                    </button>
+                    <button class="btn-text delete-class" data-class-id="${cls.id}" style="color:hsl(0,80%,50%); text-decoration:none; font-size:0.8rem;">
+                        Eliminar
+                    </button>
+                </div>
             </div>
         `).join("");
 
@@ -766,6 +771,13 @@ function renderCourseLessonsTree() {
     }).join("");
 
     lucide.createIcons();
+
+    document.querySelectorAll(".edit-class").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const classId = btn.getAttribute("data-class-id");
+            editClass(classId);
+        });
+    });
 
     document.querySelectorAll(".delete-class").forEach(btn => {
         btn.addEventListener("click", async () => {
@@ -969,34 +981,79 @@ function setupEventListeners() {
 
     document.getElementById("form-add-class").addEventListener("submit", async (e) => {
         e.preventDefault();
+        const editId = document.getElementById("edit-class-id").value;
         const courseId = document.getElementById("class-course-id").value;
         const title = document.getElementById("class-title").value.trim();
         const desc = document.getElementById("class-desc").value.trim();
         const videoUrl = document.getElementById("class-video-url").value.trim();
 
-        const newClass = {
-            id: "cls-" + Date.now(),
-            courseId,
-            title,
-            desc,
-            videoUrl
-        };
+        if (editId) {
+            // Edición
+            const existingClass = state.getClasses().find(c => c.id === editId);
+            if (existingClass) {
+                const oldCourseId = existingClass.courseId;
+                
+                existingClass.courseId = courseId;
+                existingClass.title = title;
+                existingClass.desc = desc;
+                existingClass.videoUrl = videoUrl;
 
-        await state.saveClassSingle(newClass);
+                await state.saveClassSingle(existingClass);
 
-        const courses = state.getCourses();
-        const courseIdx = courses.findIndex(c => c.id === courseId);
-        if (courseIdx !== -1) {
-            courses[courseIdx].lessonsCount += 1;
-            await state.updateCourseSingle(courses[courseIdx]);
+                // Si se cambió de curso, corregimos los contadores
+                if (oldCourseId !== courseId) {
+                    const coursesList = state.getCourses();
+                    
+                    const oldCourseIdx = coursesList.findIndex(c => c.id === oldCourseId);
+                    if (oldCourseIdx !== -1) {
+                        coursesList[oldCourseIdx].lessonsCount = Math.max(0, coursesList[oldCourseIdx].lessonsCount - 1);
+                        await state.updateCourseSingle(coursesList[oldCourseIdx]);
+                    }
+
+                    const newCourseIdx = coursesList.findIndex(c => c.id === courseId);
+                    if (newCourseIdx !== -1) {
+                        coursesList[newCourseIdx].lessonsCount += 1;
+                        await state.updateCourseSingle(coursesList[newCourseIdx]);
+                    }
+                }
+
+                alert(`Clase "${title}" modificada con éxito.`);
+                cancelEditClass();
+            }
+        } else {
+            // Creación
+            const newClass = {
+                id: "cls-" + Date.now(),
+                courseId,
+                title,
+                desc,
+                videoUrl
+            };
+
+            await state.saveClassSingle(newClass);
+
+            const courses = state.getCourses();
+            const courseIdx = courses.findIndex(c => c.id === courseId);
+            if (courseIdx !== -1) {
+                courses[courseIdx].lessonsCount += 1;
+                await state.updateCourseSingle(courses[courseIdx]);
+            }
+
+            alert(`Clase "${title}" agregada con éxito al curso.`);
+            document.getElementById("form-add-class").reset();
         }
-
-        alert(`Clase "${title}" agregada con éxito al curso.`);
-        document.getElementById("form-add-class").reset();
         
         renderAdminPanel();
         renderPublicCourses();
     });
+
+    const btnCancelEditClass = document.getElementById("btn-cancel-edit-class");
+    if (btnCancelEditClass) {
+        btnCancelEditClass.addEventListener("click", (e) => {
+            e.preventDefault();
+            cancelEditClass();
+        });
+    }
 
     // ==========================================
     // 7. COMPRAR / REGISTRO MODAL LISTENERS
@@ -1215,4 +1272,41 @@ async function checkPaymentReturn() {
             }
         }
     }
+}
+
+function editClass(classId) {
+    const classes = state.getClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return;
+
+    document.getElementById("edit-class-id").value = classId;
+    document.getElementById("class-course-id").value = cls.courseId;
+    document.getElementById("class-title").value = cls.title;
+    document.getElementById("class-desc").value = cls.desc;
+    document.getElementById("class-video-url").value = cls.videoUrl;
+
+    const form = document.getElementById("form-add-class");
+    const titleBox = form.previousElementSibling.querySelector("h3");
+    if (titleBox) {
+        titleBox.innerHTML = `<i data-lucide="edit-3" style="color:var(--primary);"></i> Editar Clase: ${cls.title}`;
+    }
+    
+    document.getElementById("btn-submit-class").innerHTML = `Guardar Cambios <i data-lucide="save"></i>`;
+    document.getElementById("btn-cancel-edit-class").style.display = "inline-block";
+    lucide.createIcons();
+}
+
+function cancelEditClass() {
+    document.getElementById("edit-class-id").value = "";
+    document.getElementById("form-add-class").reset();
+    
+    const form = document.getElementById("form-add-class");
+    const titleBox = form.previousElementSibling.querySelector("h3");
+    if (titleBox) {
+        titleBox.innerHTML = `<i data-lucide="file-video" style="color:var(--primary);"></i> Agregar Clase a Curso`;
+    }
+    
+    document.getElementById("btn-submit-class").innerHTML = `Agregar Clase <i data-lucide="plus"></i>`;
+    document.getElementById("btn-cancel-edit-class").style.display = "none";
+    lucide.createIcons();
 }

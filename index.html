@@ -190,10 +190,10 @@
                             <!-- Video Player Section -->
                             <div class="video-container-wrapper">
                                 <div class="video-ratio-box">
-                                    <!-- Using iframe wrapper for YouTube/Vimeo support & HTML5 fallback -->
                                     <div id="video-frame-container" class="video-frame-container">
                                         <!-- Will render <iframe id="video-frame" ...> or <video id="video-html5" ...> -->
                                     </div>
+                                    <div class="video-overlay-blocker"></div>
                                 </div>
                                 <div class="video-info-card">
                                     <h3 id="active-class-title">Clase Activa</h3>
@@ -322,6 +322,7 @@
                             <h3><i data-lucide="file-video"></i> Agregar Clase a Curso</h3>
                         </div>
                         <form id="form-add-class" class="admin-form">
+                            <input type="hidden" id="edit-class-id" value="">
                             <div class="form-group">
                                 <label for="class-course-id">Seleccionar Curso</label>
                                 <div class="input-wrapper">
@@ -356,8 +357,11 @@
                                 <span class="input-note">Tip: Puedes usar enlaces de prueba como https://www.w3schools.com/html/mov_bbb.mp4</span>
                             </div>
 
-                            <button type="submit" class="btn-primary btn-full">
+                            <button type="submit" class="btn-primary btn-full" id="btn-submit-class">
                                 Agregar Clase <i data-lucide="plus"></i>
+                            </button>
+                            <button type="button" class="btn-secondary btn-full" id="btn-cancel-edit-class" style="display: none; margin-top: 0.75rem;">
+                                Cancelar Edición
                             </button>
                         </form>
                     </div>
